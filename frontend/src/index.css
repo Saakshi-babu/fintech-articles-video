@@ -1,0 +1,116 @@
+:root {
+  /* New Palette: Trust & Clarity */
+  --primary-color: #3B82F6;
+  /* Blue 500 */
+  --primary-hover: #2563EB;
+  /* Blue 600 */
+  --secondary-accent: #10B981;
+  /* Emerald 500 */
+
+  --bg-body: #F8F9FA;
+  /* Slate 50 */
+  --bg-card: #FFFFFF;
+
+  --text-primary: #0F172A;
+  /* Slate 900 */
+  --text-secondary: #475569;
+  /* Slate 600 */
+  --text-muted: #94A3B8;
+  /* Slate 400 */
+
+  --border-subtle: #E2E8F0;
+  /* Slate 200 */
+
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+body {
+  margin: 0;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background-color: var(--bg-body);
+  /* Subtle blue halo effect at the top */
+  background-image: radial-gradient(80% 50% at 50% -20%, rgba(59, 130, 246, 0.15), rgba(255, 255, 255, 0));
+  color: var(--text-primary);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Updated Card Style */
+.glass-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: 16px;
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.glass-card:hover {
+  box-shadow: var(--shadow-lg);
+  border-color: #CBD5E1;
+}
+
+/* Primary Button */
+.btn-primary {
+  background-color: var(--primary-color);
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 8px;
+  /* Slightly sharper for modern feel */
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  box-shadow: 0 2px 4px rgba(59, 130, 246, 0.3);
+}
+
+.btn-primary:hover {
+  background-color: var(--primary-hover);
+  transform: translateY(-1px);
+}
+
+.btn-secondary {
+  background-color: white;
+  color: var(--text-secondary);
+  border: 1px solid var(--border-subtle);
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-secondary:hover {
+  background-color: #F1F5F9;
+  color: var(--text-primary);
+}
+
+h1,
+h2,
+h3,
+h4,
+h5 {
+  color: var(--text-primary);
+  font-weight: 700;
+  letter-spacing: -0.025em;
+}
+
+p {
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+.container {
+  max-width: 1000px;
+  /* Slightly tighter measure for readability */
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+/* Utility for text gradients if needed */
+.text-gradient {
+  background: linear-gradient(135deg, var(--primary-color) 0%, #2563EB 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
