@@ -26,7 +26,7 @@ const seedData = async () => {
             category: 'Government',
         });
         await createSteps(panWorkflow._id, [
-            { order: 1, title: 'Visit NSDL or UTIITSL Website', description: 'Go to the official NSDL (Protean) website.', actionChecklist: ['Open https://www.onlineservices.nsdl.com/', 'Select Application Type: New PAN (Form 49A)', 'Select Category: Individual'] },
+            { order: 1, title: 'Visit Protean (NSDL) Website', description: 'Go to the official Protean portal.', actionChecklist: ['Open https://www.protean-tinpan.com/services/pan/pan-index.html', 'Select "Apply for PAN"', 'Select Category: Individual'] },
             { order: 2, title: 'Fill Personal Details', description: 'Enter details exactly as per Aadhaar.', actionChecklist: ['Enter Name & DOB', 'Enter Email & Mobile', 'Submit and save Token Number'] },
             { order: 3, title: 'Submit Documents', description: 'Use Aadhaar e-KYC for paperless submission.', actionChecklist: ['Select "Submit digitally through e-KYC"', 'Enter Aadhaar Number', 'Authenticate via OTP'] },
             { order: 4, title: 'Payment & Submission', description: 'Pay the fee (approx ₹101).', actionChecklist: ['Pay via UPI/Card', 'Download Acknowledgement'] }
@@ -72,6 +72,34 @@ const seedData = async () => {
             { order: 2, title: 'Start Online Application', description: 'Visit bank website or download app.', actionChecklist: ['Click "Open Account"', 'Enter Mobile Number linked to Aadhaar', 'Verify OTP'] },
             { order: 3, title: 'Video KYC', description: 'Complete KYC without visiting a branch.', actionChecklist: ['Keep PAN & Aadhaar ready', 'Ensure good lighting', 'Connect with agent via video call', 'Show original PAN card'] },
             { order: 4, title: 'Account Activation', description: 'Get account details instantly.', actionChecklist: ['Receive Account No. & IFSC', 'Set up Net Banking/Mobile App', 'Order Debit Card'] }
+        ]);
+
+        // 5. Voter ID Card
+        const voterWorkflow = await Workflow.create({
+            title: 'Apply for Voter ID Card',
+            description: 'Register as a new voter (Form 6) via the NVSP portal.',
+            type: 'apply',
+            category: 'Government',
+        });
+        await createSteps(voterWorkflow._id, [
+            { order: 1, title: 'Visit NVSP Portal', description: 'Go to https://voters.eci.gov.in/ (National Voters\' Service Portal).', actionChecklist: ['Sign up/Login with Mobile', 'Select "New Registration for General Electors" (Form 6)'] },
+            { order: 2, title: 'Fill Form 6', description: 'Enter personal details and upload photos.', actionChecklist: ['Upload Passport Size Photo', 'Enter Name, Gender, DOB', 'Enter Address details accurately'] },
+            { order: 3, title: 'Upload Proofs', description: 'Provide Age and Address proof.', actionChecklist: ['Age Proof: Birth Cert, Aadhaar, PAN', 'Address Proof: Aadhaar, Passport, Ration Card'] },
+            { order: 4, title: 'Submit & Track', description: 'Note the Reference ID.', actionChecklist: ['Submit the form', 'Use Reference ID to track status', 'Card delivered by post in 30-45 days'] }
+        ]);
+
+        // 6. Passport
+        const passportWorkflow = await Workflow.create({
+            title: 'Apply for Passport',
+            description: 'Apply for a fresh Passport via Passport Seva Kendra (PSK).',
+            type: 'apply',
+            category: 'Government',
+        });
+        await createSteps(passportWorkflow._id, [
+            { order: 1, title: 'Register on Passport Seva', description: 'Visit https://www.passportindia.gov.in/', actionChecklist: ['Click "New User Registration"', 'Create ID and Password', 'Login to the portal'] },
+            { order: 2, title: 'Fill Application Form', description: 'Apply for Fresh Passport.', actionChecklist: ['Click "Apply for Fresh Passport"', 'Fill details carefully (match Aadhaar)', 'Submit form online'] },
+            { order: 3, title: 'Pay & Schedule Appointment', description: 'Booking a slot at PSK is mandatory.', actionChecklist: ['Click "Pay and Schedule Appointment"', 'Select PSK location', 'Pay fee (approx ₹1500)'] },
+            { order: 4, title: 'Visit PSK', description: 'Physical verification of documents.', actionChecklist: ['Print Application Receipt (ARN)', 'Carry Original Documents', 'Biometrics will be taken at PSK', 'Police Verification follows'] }
         ]);
 
         // === LEARN WORKFLOWS ===

@@ -41,8 +41,10 @@ def recommend_resources():
     try:
         # Use Real Scraping instead of Gemini
         resources = scraper_service.get_real_recommendations(topic)
+        print(f"DEBUG: Returning {len(resources.get('articles', []))} articles and {len(resources.get('videos', []))} videos")
         return jsonify({"resources": resources})
     except Exception as e:
+        print(f"ERROR in recommend_resources: {e}")
         return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':

@@ -1,33 +1,53 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { getWorkflowSteps, getWorkflow, generateExplanation, getRecommendedResources } from '../services/api';
+import { getWorkflowSteps, getWorkflows, generateExplanation, getRecommendedResources } from '../services/api';
 
 const StepFlow = () => {
     const { id } = useParams();
     const navigate = useNavigate();
 
-    // 1. All hooks must be at the top level
     const [steps, setSteps] = useState([]);
-    const [workflow, setWorkflow] = useState(null); // Added context
     const [currentStepIndex, setCurrentStepIndex] = useState(0);
     const [loading, setLoading] = useState(true);
-    const [aiLoading, setAiLoading] = useState(false);
-    const [aiResources, setAiResources] = useState(null);
+    const [explanation, setExplanation] = useState('');
+    const [resources, setResources] = useState({ articles: [], videos: [] });
+    const [loadingAI, setLoadingAI] = useState(false);
+    const [loadingResources, setLoadingResources] = useState(false);
+    const [workflow, setWorkflow] = useState(null);
     const [isSaved, setIsSaved] = useState(false);
 
-    // 2. Data Fetching Effect
+    const getWorkflowIcon = (title) => {
+        if (!title) return '📋';
+        const lower = title.toLowerCase();
+        if (lower.includes('pan')) return '📄';
+        if (lower.includes('aadhaar')) return '🆔';
+        if (lower.includes('driving')) return '🚗';
+        if (lower.includes('voter')) return '🗳️';
+        if (lower.includes('passport')) return '🛂';
+        if (lower.includes('bank')) return '🏦';
+        if (lower.includes('tax')) return '💰';
+        if (lower.includes('credit') || lower.includes('loan')) return '💳';
+        if (lower.includes('invest')) return '📈';
+        if (lower.includes('budget')) return '📊';
+        return '📋';
+    };
+
     useEffect(() => {
         const fetchData = async () => {
             try {
-                // Fetch both workflow details (for title context) and steps
-                const [workflowData, stepsData] = await Promise.all([
-                    getWorkflow(id),
-                    getWorkflowSteps(id)
-                ]);
-                setWorkflow(workflowData);
+                const stepsData = await getWorkflowSteps(id);
                 setSteps(stepsData);
+
+                // Fetch workflow details
+                const allWorkflows = await getWorkflows();
+                const currentWorkflow = allWorkflows.find(w => String(w._id) === String(id));
+                setWorkflow(currentWorkflow);
+
+                // Check if saved
+                const saved = JSON.parse(localStorage.getItem('savedGuides') || '[]');
+                setIsSaved(saved.some(g => g.id === id));
             } catch (error) {
-                console.error('Failed to fetch data', error);
+                console.error('Error fetching data:', error);
             } finally {
                 setLoading(false);
             }
@@ -35,203 +55,236 @@ const StepFlow = () => {
         fetchData();
     }, [id]);
 
-    // 3. AI Resources Logic
     useEffect(() => {
-        if (!steps || steps.length === 0 || !workflow) return;
-
-        const step = steps[currentStepIndex];
-        // Only fetch if no hardcoded resources exist
-        if (step && (!step.resources || step.resources.length === 0)) {
-            // Contextual Search: "PAN Card: Submission" instead of just "Submission"
-            // FIX: Filter out generic words like "Submit" that confuse the AI with programming topics.
-            const genericSteps = ["Submit", "Submission", "Next", "Introduction", "Start", "End", "Complete", "Finish"];
-
-            let queryTopic = workflow.title;
-            // Only append step title if it's NOT generic
-            if (!genericSteps.some(g => step.title.toLowerCase().includes(g.toLowerCase()))) {
-                queryTopic += ` ${step.title}`;
-            }
-
-            fetchAiResources(queryTopic);
-        } else {
-            setAiResources(null);
+        if (steps.length > 0 && workflow) {
+            fetchAIExplanation();
         }
     }, [currentStepIndex, steps, workflow]);
 
-    // 4. Saved Status Effect
     useEffect(() => {
-        const saved = JSON.parse(localStorage.getItem('savedWorkflows') || '[]');
-        setIsSaved(saved.some(w => w.id === id));
-    }, [id]);
+        if (workflow) {
+            fetchWorkflowResources();
+        }
+    }, [workflow]);
 
-    const fetchAiResources = async (topic) => {
-        setAiLoading(true);
+    const fetchWorkflowResources = async () => {
+        setLoadingResources(true);
         try {
-            const data = await getRecommendedResources(topic);
-            if (data && !data.error && data.resources) {
-                setAiResources(data.resources);
-            }
+            // Use the workflow title to fetch specific, high-quality links for the entire process
+            const query = `${workflow.title} India guide official website steps tutorials`;
+            console.log("Fetching workflow resources for:", query);
+            const resourcesRes = await getRecommendedResources(query);
+            setResources(resourcesRes.resources || { articles: [], videos: [] });
         } catch (error) {
-            console.error("AI recommendation failed", error);
+            console.error('Error fetching workflow resources:', error);
         } finally {
-            setAiLoading(false);
+            setLoadingResources(false);
         }
     };
 
-    const toggleSave = () => {
-        const saved = JSON.parse(localStorage.getItem('savedWorkflows') || '[]');
+    const fetchAIExplanation = async () => {
+        const currentStep = steps[currentStepIndex];
+        if (!currentStep || !workflow) return;
+
+        setLoadingAI(true);
+        try {
+            const explanationRes = await generateExplanation(currentStep.title, workflow.title);
+            setExplanation(explanationRes.explanation || '');
+        } catch (error) {
+            console.error('Error fetching AI explanation:', error);
+        } finally {
+            setLoadingAI(false);
+        }
+    };
+
+    const handleSave = () => {
+        const saved = JSON.parse(localStorage.getItem('savedGuides') || '[]');
         if (isSaved) {
-            const updated = saved.filter(w => w.id !== id);
-            localStorage.setItem('savedWorkflows', JSON.stringify(updated));
+            const updated = saved.filter(g => g.id !== id);
+            localStorage.setItem('savedGuides', JSON.stringify(updated));
             setIsSaved(false);
         } else {
-            // Use accurate workflow title now!
-            const title = workflow ? workflow.title : (steps[0]?.title || 'Saved Guide');
-            const newSave = { id, title };
-            saved.push(newSave);
-            localStorage.setItem('savedWorkflows', JSON.stringify(saved));
+            saved.push({ id, title: workflow?.title || 'Guide' });
+            localStorage.setItem('savedGuides', JSON.stringify(saved));
             setIsSaved(true);
-            alert("Guide saved to bookmarks!");
         }
     };
 
-    // 5. Derived State and Logic
-    // Loading/Error States
-    if (loading) return <div className="container" style={{ paddingTop: '5rem' }}>Loading steps...</div>;
-    if (steps.length === 0) return <div className="container" style={{ paddingTop: '5rem' }}>No steps found for this workflow.</div>;
+    if (loading) {
+        return (
+            <div className="main-content" style={{ textAlign: 'center', padding: '4rem' }}>
+                <p>Loading guide...</p>
+            </div>
+        );
+    }
+
+    if (steps.length === 0) {
+        return (
+            <div className="main-content">
+                <div className="info-box danger">
+                    <div className="info-box-title">No steps found</div>
+                    <p className="info-box-text">This guide doesn't have any steps yet.</p>
+                </div>
+                <button className="btn btn-secondary" onClick={() => navigate('/')}>
+                    ← Back to Home
+                </button>
+            </div>
+        );
+    }
 
     const currentStep = steps[currentStepIndex];
     const progress = ((currentStepIndex + 1) / steps.length) * 100;
 
-    // Merge DB resources and AI resources
-    const dbResources = currentStep.resources || [];
-    const displayResources = {
-        articles: dbResources.filter(r => r.type === 'article').map(r => ({ title: r.title, url: r.url })),
-        videos: dbResources.filter(r => r.type === 'video').map(r => ({ title: r.title, url: r.url }))
-    };
-
-    if (aiResources) {
-        if (displayResources.articles.length === 0) displayResources.articles = aiResources.articles || [];
-        if (displayResources.videos.length === 0) displayResources.videos = aiResources.videos || [];
-    }
-
     return (
-        <div className="container" style={{ paddingTop: '2rem', paddingBottom: '5rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-                <button onClick={() => navigate(-1)} className="btn-secondary">
-                    ← Exit
-                </button>
-                <button
-                    onClick={toggleSave}
-                    className="btn-secondary"
-                    style={{ color: isSaved ? 'var(--primary-color)' : 'var(--text-secondary)', borderColor: isSaved ? 'var(--primary-color)' : 'var(--border-subtle)' }}
-                >
-                    {isSaved ? '♥ Saved' : '♡ Save Guide'}
-                </button>
-            </div>
-
-            {/* Progress Bar */}
-            <div style={{ background: '#E2E8F0', height: '8px', borderRadius: '4px', marginBottom: '2rem' }}>
-                <div style={{ background: 'var(--primary-color)', height: '100%', borderRadius: '4px', width: `${progress}%`, transition: 'width 0.3s' }}></div>
-            </div>
-
-            <div className="glass-card" style={{ padding: '3rem' }}>
-                {workflow && (
-                    <div style={{ marginBottom: '0.5rem', color: 'var(--text-muted)', fontSize: '0.9rem', textTransform: 'uppercase', letterSpacing: '1px' }}>
-                        {workflow.title}
-                    </div>
-                )}
-                <h5 style={{ color: 'var(--primary-color)', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 'bold' }}>Step {currentStepIndex + 1} of {steps.length}</h5>
-                <h1 style={{ marginTop: '0.5rem', marginBottom: '1.5rem', fontSize: '2rem' }}>{currentStep.title}</h1>
-
-                <div style={{ fontSize: '1.1rem', lineHeight: '1.6', color: 'var(--text-secondary)', marginBottom: '2rem', whiteSpace: 'pre-line' }}>
-                    {currentStep.description}
+        <div className="app-container">
+            {/* Header */}
+            <header className="hero-header" style={{ paddingBottom: '3rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '2rem' }}>
+                    <button className="btn btn-secondary" style={{ background: 'rgba(255,255,255,0.1)', color: 'white', border: 'none' }} onClick={() => navigate(-1)}>
+                        ← Back
+                    </button>
+                    <button className={`btn ${isSaved ? 'btn-secondary' : 'btn-primary'}`} style={isSaved ? { background: '#10b981', color: 'white', border: 'none' } : {}} onClick={handleSave}>
+                        {isSaved ? '✓ Saved' : '🔖 Save Guide'}
+                    </button>
                 </div>
+                <div className="hero-badge">
+                    <span>{getWorkflowIcon(workflow?.title)}</span>
+                    <span style={{ marginLeft: '0.5rem' }}>STEP {currentStepIndex + 1} OF {steps.length}</span>
+                </div>
+                <h1 className="hero-title">{workflow?.title}</h1>
+                <p className="hero-subtitle">{workflow?.description}</p>
 
-                {currentStep.actionChecklist && currentStep.actionChecklist.length > 0 && (
-                    <div style={{ background: '#F1F5F9', padding: '1.5rem', borderRadius: '12px', marginBottom: '2rem', border: '1px solid #E2E8F0' }}>
-                        <h3 style={{ marginTop: 0, fontSize: '1.1rem', color: 'var(--text-primary)' }}>✅ Action Checklist</h3>
-                        <ul style={{ paddingLeft: '1.2rem', color: 'var(--text-secondary)' }}>
-                            {currentStep.actionChecklist.map((item, idx) => (
-                                <li key={idx} style={{ marginBottom: '0.5rem' }}>{item}</li>
-                            ))}
-                        </ul>
+                {/* Progress Bar */}
+                <div className="progress-container">
+                    <div className="progress-fill" style={{ width: `${progress}%` }}></div>
+                </div>
+            </header>
+
+            <main className="main-content" style={{ maxWidth: '900px' }}>
+                {/* Step Content */}
+                <section className="card step-focused-card" style={{ marginBottom: '2rem', padding: '2.5rem' }}>
+                    <div className="section-header">
+                        <div className="step-number-circle" style={{ width: '40px', height: '40px', fontSize: '1.1rem' }}>
+                            {currentStepIndex + 1}
+                        </div>
+                        <h2 className="section-title" style={{ fontSize: '1.75rem' }}>{currentStep.title}</h2>
                     </div>
-                )}
 
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '2rem' }}>
+                    <div className="info-box" style={{ marginTop: '1.5rem', marginBottom: '2rem' }}>
+                        <p className="info-box-text" style={{ fontSize: '1.1rem', lineHeight: '1.7' }}>
+                            {currentStep.description}
+                        </p>
+                    </div>
+
+                    {currentStep.actionChecklist && currentStep.actionChecklist.length > 0 && (
+                        <div style={{ marginBottom: '2rem' }}>
+                            <h4 style={{ marginBottom: '1rem', color: 'var(--text-primary)' }}>Action Checklist:</h4>
+                            <div className="step-checklist">
+                                {currentStep.actionChecklist.map((item, i) => (
+                                    <div key={i} className="checklist-item" style={{ padding: '0.5rem 0' }}>
+                                        <span className="checklist-icon">✓</span>
+                                        <span>{item}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* AI Explanation Integrated Directly */}
+                    <div style={{ marginTop: '3rem', borderTop: '1px solid var(--border-color)', paddingTop: '2rem' }}>
+                        <div className="section-header" style={{ marginBottom: '1rem' }}>
+                            <span className="section-icon">🤖</span>
+                            <h3 className="section-title" style={{ fontSize: '1.25rem' }}>Personalized Guidance</h3>
+                        </div>
+                        {loadingAI ? (
+                            <p style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>Analyzing details for you...</p>
+                        ) : (
+                            <div className="explanation-content">
+                                {explanation.split('\n').map((para, i) => para ? <p key={i}>{para}</p> : null)}
+                            </div>
+                        )}
+                    </div>
+                </section>
+
+                {/* Navigation Controls */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4rem' }}>
                     <button
-                        className="btn-secondary"
+                        className="btn btn-secondary"
                         disabled={currentStepIndex === 0}
                         onClick={() => setCurrentStepIndex(prev => prev - 1)}
                     >
-                        Previous
+                        ← Previous Step
                     </button>
-                    <button
-                        className="btn-primary"
-                        onClick={() => {
-                            if (currentStepIndex < steps.length - 1) {
-                                setCurrentStepIndex(prev => prev + 1);
-                            } else {
-                                alert('Workflow Completed! Great job.');
-                                navigate('/');
-                            }
-                        }}
-                    >
-                        {currentStepIndex === steps.length - 1 ? 'Finish' : 'Next Step'}
-                    </button>
+                    {currentStepIndex < steps.length - 1 ? (
+                        <button className="btn btn-primary" onClick={() => setCurrentStepIndex(prev => prev + 1)}>
+                            Next Step →
+                        </button>
+                    ) : (
+                        <button className="btn btn-primary" style={{ background: 'var(--accent-green)' }} onClick={() => navigate('/')}>
+                            Finish Guide 🎉
+                        </button>
+                    )}
                 </div>
-            </div>
 
-            {/* Resources Section */}
-            <div style={{ marginTop: '3rem' }}>
-                <h2 style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '10px', fontSize: '1.5rem' }}>
-                    Recommended Resources
-                    {aiLoading && <span style={{ fontSize: '0.9rem', fontWeight: 'normal', color: 'var(--secondary-accent)', background: '#ECFDF5', padding: '2px 8px', borderRadius: '4px' }}>AI Fetching...</span>}
-                </h2>
-
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '2rem' }}>
-                    {/* Articles */}
-                    <div className="glass-card" style={{ padding: '2rem' }}>
-                        <h3 style={{ marginTop: 0, fontSize: '1.2rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                            <span style={{ fontSize: '1.5rem' }}>📄</span> Articles
-                        </h3>
-                        {displayResources.articles.length > 0 ? (
-                            <ul style={{ paddingLeft: '1.2rem', color: 'var(--text-secondary)' }}>
-                                {displayResources.articles.map((res, idx) => (
-                                    <li key={idx} style={{ marginBottom: '0.8rem' }}>
-                                        <a href={res.url} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--primary-color)', textDecoration: 'none', fontWeight: '500' }}>
-                                            {res.title}
-                                        </a>
-                                    </li>
-                                ))}
-                            </ul>
-                        ) : (
-                            <p style={{ color: 'var(--text-muted)' }}>No articles available.</p>
-                        )}
+                {/* Recommended Resources (5-6 Articles & Videos separated as requested) */}
+                <section style={{ marginBottom: '4rem' }}>
+                    <div className="section-header" style={{ marginBottom: '2rem' }}>
+                        <span className="section-icon">🔗</span>
+                        <div>
+                            <h2 className="section-title">Verified Resources</h2>
+                            <p className="section-subtitle">LEARN FROM OFFICIAL SOURCES & EXPERTS</p>
+                        </div>
                     </div>
 
-                    {/* Videos */}
-                    <div className="glass-card" style={{ padding: '2rem' }}>
-                        <h3 style={{ marginTop: 0, fontSize: '1.2rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                            <span style={{ fontSize: '1.5rem' }}>🎥</span> Videos
-                        </h3>
-                        {displayResources.videos.length > 0 ? (
-                            <ul style={{ paddingLeft: '1.2rem', color: 'var(--text-secondary)' }}>
-                                {displayResources.videos.map((res, idx) => (
-                                    <li key={idx} style={{ marginBottom: '0.8rem' }}>
-                                        <a href={res.url} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--primary-color)', textDecoration: 'none', fontWeight: '500' }}>
-                                            {res.title}
-                                        </a>
-                                    </li>
-                                ))}
-                            </ul>
-                        ) : (
-                            <p style={{ color: 'var(--text-muted)' }}>No videos available.</p>
-                        )}
+                    <div className="two-column" style={{ gridTemplateColumns: '1fr 1fr' }}>
+                        {/* Articles */}
+                        <div>
+                            <div className="resource-section-title">
+                                <span>📄</span> Recommended Articles
+                            </div>
+                            {loadingResources ? (
+                                <p>Finding best official guides...</p>
+                            ) : (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                    {resources.articles.length > 0 ? (
+                                        resources.articles.map((article, i) => (
+                                            <a key={i} href={article.url} target="_blank" rel="noopener noreferrer" className="resource-card article" title={article.url}>
+                                                <div className="resource-icon">📄</div>
+                                                <div className="resource-title">{article.title}</div>
+                                            </a>
+                                        ))
+                                    ) : (
+                                        <p className="text-muted">No guides found for this workflow yet.</p>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Videos */}
+                        <div>
+                            <div className="resource-section-title">
+                                <span>🎥</span> Video Tutorials
+                            </div>
+                            {loadingResources ? (
+                                <p>Picking top expert tutorials...</p>
+                            ) : (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                    {resources.videos.length > 0 ? (
+                                        resources.videos.map((video, i) => (
+                                            <a key={i} href={video.url} target="_blank" rel="noopener noreferrer" className="resource-card video" title={video.url}>
+                                                <div className="resource-icon">▶</div>
+                                                <div className="resource-title">{video.title}</div>
+                                            </a>
+                                        ))
+                                    ) : (
+                                        <p className="text-muted">No video tutorials found for this workflow yet.</p>
+                                    )}
+                                </div>
+                            )}
+                        </div>
                     </div>
-                </div>
-            </div>
+                </section>
+            </main>
         </div>
     );
 };

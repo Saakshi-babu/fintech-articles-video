@@ -9,17 +9,17 @@ import Saved from './pages/Saved';
 function App() {
   return (
     <Router>
-      <div className="app-container">
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/apply" element={<Apply />} />
-          <Route path="/learn" element={<Learn />} />
-          <Route path="/saved" element={<Saved />} />
-          <Route path="/workflow/:id" element={<StepFlow />} />
-        </Routes>
-      </div>
+      <Routes>
+        <Route path="/" element={<Home />} />
+        <Route path="/apply" element={<Apply />} />
+        <Route path="/learn" element={<Learn />} />
+        <Route path="/saved" element={<Saved />} />
+        <Route path="/workflow/:id" element={<StepFlow />} />
+      </Routes>
     </Router>
   );
 }
 
 export default App;
+
+
